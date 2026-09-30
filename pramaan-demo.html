@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRAMAAN — Live System Visualization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0c10;--surface:#111318;--surface2:#161923;--border:#2a2d35;
+  --text:#e8eaf0;--muted:#8b8fa8;--faint:#555869;
+  --blue:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --purple:#8b5cf6;--cyan:#06b6d4;--pink:#ec4899;--lime:#84cc16;--orange:#f97316;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* ── TOP BAR ── */
+.topbar{
+  display:flex;align-items:center;padding:0 24px;height:56px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  gap:20px;flex-shrink:0;
+}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-mark{
+  width:36px;height:36px;border-radius:9px;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  box-shadow:0 0 16px rgba(59,130,246,.35);
+}
+.logo-text{font-size:16px;font-weight:700;letter-spacing:.06em;}
+.logo-sub{font-size:10px;font-weight:400;color:var(--faint);letter-spacing:.04em;margin-top:1px;}
+.vdiv{width:1px;height:28px;background:var(--border);}
+.status-pill{
+  display:flex;align-items:center;gap:7px;
+  font-size:11px;color:var(--green);font-weight:600;letter-spacing:.05em;
+}
+.pulse{
+  width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 0 rgba(16,185,129,.5);animation:pulse 2s infinite;
+}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.5);}70%{box-shadow:0 0 0 8px rgba(16,185,129,0);}100%{box-shadow:0 0 0 0 rgba(16,185,129,0);}}
+.live-btn{
+  margin-left:auto;display:flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface2);font-size:11px;font-weight:600;
+  color:var(--muted);cursor:pointer;letter-spacing:.04em;
+  transition:all .2s;
+}
+.live-btn:hover{border-color:var(--green);color:var(--green);}
+.live-btn.active{background:rgba(16,185,129,.1);border-color:var(--green);color:var(--green);}
+.live-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.live-btn.active .live-dot{animation:pulse 1s infinite;}
+.metrics{display:flex;gap:24px;}
+.m{display:flex;flex-direction:column;align-items:flex-end;}
+.m-lbl{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.12em;}
+.m-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--blue);transition:color .15s;}
+.m-val.flash{color:var(--amber)!important;}
+
+/* ── SCENARIO CONTROLS ── */
+.controls{
+  display:flex;align-items:center;gap:10px;padding:10px 24px;
+  background:var(--surface2);border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.ctrl-label{font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin-right:4px;}
+.sc-btn{
+  display:flex;align-items:center;gap:7px;padding:7px 16px;
+  border-radius:6px;border:1px solid var(--border);background:var(--bg);
+  font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;
+  transition:all .2s;white-space:nowrap;
+}
+.sc-btn:hover{border-color:var(--blue);color:var(--text);}
+.sc-btn.playing{background:rgba(59,130,246,.1);border-color:var(--blue);color:var(--blue);}
+.sc-btn.done{border-color:var(--border);color:var(--green);}
+.sc-icon{font-size:13px;}
+.sc-status{font-size:9px;font-weight:700;letter-spacing:.06em;margin-left:2px;}
+.sep-btn{flex:1;}
+.pause-btn{
+  display:flex;align-items:center;gap:6px;padding:7px 14px;
+  border-radius:6px;border:1px solid var(--border);background:var(--bg);
+  font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .2s;
+}
+.pause-btn:hover{border-color:var(--amber);color:var(--amber);}
+.speed-btn{
+  display:flex;align-items:center;gap:4px;padding:7px 12px;
+  border-radius:6px;border:1px solid var(--border);background:var(--bg);
+  font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .2s;
+}
+.speed-btn:hover{border-color:var(--purple);color:var(--purple);}
+
+/* ── LIVE PANEL ── */
+.live-panel{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:14px 24px;display:none;flex-direction:column;gap:12px;flex-shrink:0;
+}
+.live-panel.open{display:flex;}
+.live-row{display:flex;align-items:center;gap:12px;}
+.live-input{
+  flex:1;padding:8px 12px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;
+  font-size:11px;outline:none;transition:border-color .2s;
+}
+.live-input:focus{border-color:var(--blue);}
+.live-input::placeholder{color:var(--faint);}
+.live-connect{
+  padding:8px 18px;border-radius:6px;border:1px solid var(--green);
+  background:rgba(16,185,129,.1);color:var(--green);font-size:11px;
+  font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.live-connect:hover{background:rgba(16,185,129,.2);}
+.live-status{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--faint);}
+.live-status.ok{color:var(--green);}
+.live-status.err{color:var(--red);}
+.live-status.polling{color:var(--amber);}
+.live-note{font-size:10px;color:var(--faint);line-height:1.5;}
+
+/* ── MAIN GRID ── */
+.main{
+  display:grid;grid-template-columns:360px 1fr 340px;
+  grid-template-rows:1fr 36px;
+  flex:1;overflow:hidden;gap:1px;background:var(--border);
+}
+.panel{background:var(--bg);display:flex;flex-direction:column;overflow:hidden;}
+.phdr{
+  padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--muted);display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.hdot{width:6px;height:6px;border-radius:50%;}
+
+/* ── LOG ── */
+#log{
+  font-family:'JetBrains Mono',monospace;font-size:11.5px;
+  padding:14px 16px;overflow-y:auto;flex:1;line-height:2;
+}
+#log::-webkit-scrollbar{width:3px;}
+#log::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.ll{display:flex;gap:8px;align-items:baseline;opacity:0;transform:translateX(-5px);transition:opacity .16s,transform .16s;}
+.ll.v{opacity:1;transform:translateX(0);}
+.lt{color:var(--faint);min-width:82px;font-size:10px;}
+.ltag{font-weight:600;min-width:60px;font-size:10.5px;}
+.ltag.AUTH{color:var(--blue);}
+.ltag.MFA{color:var(--purple);}
+.ltag.RBAC{color:#a78bfa;}
+.ltag.MIME{color:var(--cyan);}
+.ltag.KMS{color:var(--amber);}
+.ltag.CRYPT{color:var(--amber);}
+.ltag.CHUNK{color:var(--cyan);}
+.ltag.STORE{color:var(--green);}
+.ltag.INTEG{color:var(--pink);}
+.ltag.AUDIT{color:var(--orange);}
+.ltag.HASH{color:var(--pink);}
+.ltag.DB{color:var(--lime);}
+.ltag.SHARE{color:#60a5fa;}
+.ltag.OTP{color:var(--amber);}
+.ltag.SYS{color:var(--faint);}
+.ltag.LIVE{color:var(--green);}
+.lm{color:var(--muted);flex:1;}
+.lv{color:var(--text);font-weight:500;}
+.lsep{opacity:.4;}
+.lsep .lt,.lsep .lm{color:var(--border)!important;}
+
+/* ── CENTER ── */
+.center{display:flex;flex-direction:column;overflow:hidden;}
+#psvg{width:100%;flex:1 1 0;min-height:0;}
+.sec-strip{
+  padding:12px 16px;background:var(--surface2);border-top:1px solid var(--border);
+  display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;
+}
+.sec-pill{
+  display:flex;align-items:center;gap:6px;padding:5px 10px;
+  border-radius:20px;border:1px solid var(--border);background:var(--bg);
+  font-size:10px;font-weight:500;color:var(--muted);transition:all .3s;
+}
+.sec-pill.lit{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.4);color:var(--text);}
+.sec-pill.busy{border-color:rgba(245,158,11,.4);color:var(--amber);animation:sec-blink 1s infinite;}
+@keyframes sec-blink{50%{opacity:.55;}}
+.sp-dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+
+/* ── RIGHT ── */
+.right{display:flex;flex-direction:column;overflow:hidden;}
+
+/* Hash Chain */
+.chain-scroll{
+  overflow-y:auto;padding:14px 14px 10px;
+  display:flex;flex-direction:column;gap:4px;flex:1;
+}
+.chain-scroll::-webkit-scrollbar{width:3px;}
+.chain-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+.hblk{
+  background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:9px 12px;opacity:0;transform:translateY(5px);transition:all .25s;flex-shrink:0;
+}
+.hblk.v{opacity:1;transform:translateY(0);}
+.hblk-top{display:flex;justify-content:space-between;margin-bottom:5px;font-size:10px;}
+.hblk-ev{color:var(--amber);font-weight:700;}
+.hblk-actor{color:var(--faint);}
+.hblk-hashes{display:flex;gap:12px;font-family:'JetBrains Mono',monospace;font-size:8.5px;}
+.hh{color:var(--faint);}
+.hh span.p{color:var(--blue);}
+.hh span.c{color:var(--green);}
+.clink{text-align:center;font-size:11px;color:var(--border);line-height:1.4;flex-shrink:0;}
+
+/* Chunk Engine */
+.chunk-wrap{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+.chunk-wrap::-webkit-scrollbar{width:3px;}
+.chunk-wrap::-webkit-scrollbar-thumb{background:var(--border);}
+.doc-card{border:1px solid var(--border);border-radius:7px;overflow:hidden;background:var(--surface);}
+.doc-card-hdr{
+  padding:8px 12px;background:rgba(59,130,246,.05);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+}
+.dc-name{color:var(--muted);}
+.dc-size{color:var(--faint);}
+.chunks-list{padding:8px 10px;display:flex;flex-direction:column;gap:4px;}
+.crow{display:flex;align-items:center;gap:8px;}
+.cid{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--faint);min-width:35px;}
+.cbar{
+  flex:1;height:22px;border-radius:4px;border:1px solid var(--border);background:var(--bg);
+  position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--faint);transition:border-color .3s;
+}
+.cf{position:absolute;left:0;top:0;bottom:0;background:rgba(16,185,129,.18);transition:width .28s ease;}
+.cscan{
+  position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(245,158,11,.55),transparent);
+  animation:cscan .55s ease forwards;
+}
+@keyframes cscan{from{transform:translateX(-100%);}to{transform:translateX(200%);}}
+.cl{position:relative;z-index:1;}
+.cbar.enc{border-color:var(--amber);}
+.cbar.done{border-color:var(--green);}
+.cbar.done .cl{color:var(--green);}
+.ckey{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--faint);min-width:78px;text-align:right;}
+.ckey.k{color:var(--green);}
+
+/* ── API BAR ── */
+.apibar{
+  grid-column:1/-1;background:var(--surface);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:0;overflow-x:auto;
+}
+.apibar::-webkit-scrollbar{display:none;}
+.api-lbl{font-size:9px;color:var(--faint);font-weight:700;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap;padding-right:16px;border-right:1px solid var(--border);margin-right:4px;}
+.ep{
+  display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;color:var(--faint);white-space:nowrap;padding:0 12px;
+  height:36px;border-right:1px solid var(--border);transition:color .25s;
+}
+.ep.hit{color:var(--text);}
+.ep-dot{width:5px;height:5px;border-radius:50%;background:var(--green);opacity:0;}
+.ep.hit .ep-dot{animation:ep-ping .9s ease forwards;}
+@keyframes ep-ping{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(2.5);}}
+.mth{font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:2px;}
+.mth.POST{background:rgba(16,185,129,.18);color:var(--green);}
+.mth.GET{background:rgba(59,130,246,.18);color:var(--blue);}
+.mth.DELETE{background:rgba(239,68,68,.18);color:var(--red);}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark"></div>
+    <div><div class="logo-text">PRAMAAN</div><div class="logo-sub">SECURE EVIDENCE VAULT — SIH 2026 · Problem ID 26190</div></div>
+  </div>
+  <div class="vdiv"></div>
+  <div class="status-pill"><div class="pulse"></div>ALL SYSTEMS OPERATIONAL</div>
+  <div class="vdiv"></div>
+  <span style="font-size:10px;color:var(--faint)">Flask 3.x · PostgreSQL 16 · AES-256-GCM · Ed25519 · HKDF-SHA-256</span>
+  <div class="live-btn" id="live-toggle" onclick="toggleLive()">
+    <div class="live-dot"></div><span>LIVE MODE</span>
+  </div>
+  <div class="metrics">
+    <div class="m"><span class="m-lbl">Chunks</span><span class="m-val" id="mc">0</span></div>
+    <div class="m"><span class="m-lbl">Keys Derived</span><span class="m-val" id="mk">0</span></div>
+    <div class="m"><span class="m-lbl">Audit Events</span><span class="m-val" id="me">0</span></div>
+    <div class="m"><span class="m-lbl">Chain Depth</span><span class="m-val" id="md">0</span></div>
+    <div class="m"><span class="m-lbl">Sessions</span><span class="m-val" id="ms">4</span></div>
+  </div>
+</div>
+
+<!-- SCENARIO CONTROLS -->
+<div class="controls">
+  <span class="ctrl-label">Scenarios</span>
+  <button class="sc-btn" id="sc0" onclick="runScene(0)">
+    <span class="sc-icon">🔑</span>Login + TOTP MFA<span class="sc-status" id="ss0"></span>
+  </button>
+  <button class="sc-btn" id="sc1" onclick="runScene(1)">
+    <span class="sc-icon">📁</span>Upload + AES-256-GCM<span class="sc-status" id="ss1"></span>
+  </button>
+  <button class="sc-btn" id="sc2" onclick="runScene(2)">
+    <span class="sc-icon">🔗</span>Secure Share + OTP<span class="sc-status" id="ss2"></span>
+  </button>
+  <button class="sc-btn" id="sc3" onclick="runScene(3)">
+    <span class="sc-icon">🔓</span>Decrypt + Verify<span class="sc-status" id="ss3"></span>
+  </button>
+  <div class="sep-btn"></div>
+  <div id="live-ctrl-badge" style="display:none;align-items:center;gap:7px;padding:5px 12px;border-radius:6px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.4);font-size:11px;font-weight:700;color:var(--green);letter-spacing:.04em;">
+    <div style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1s infinite;"></div>LIVE
+  </div>
+  <button class="speed-btn" id="speed-btn" onclick="cycleSpeed()">⚡ 1×</button>
+  <button class="pause-btn" id="pause-btn" onclick="togglePause()">⏸ Pause</button>
+</div>
+
+<!-- LIVE MODE PANEL -->
+<div class="live-panel" id="live-panel">
+  <div style="font-size:11px;font-weight:600;color:var(--text)">Stream real Flask logs from the running backend — requires <code style="color:var(--amber)">DEBUG=True</code>:</div>
+  <div class="live-row">
+    <input class="live-input" id="li-url" type="text" value="http://localhost:5000" placeholder="Backend URL (e.g. http://localhost:5000)" style="max-width:260px">
+    <input class="live-input" id="li-jwt" type="text" placeholder="JWT access token (any valid token — paste from login response)">
+    <button class="live-connect" onclick="connectLive()">⚡ Connect SSE</button>
+    <button class="live-connect" style="border-color:var(--red);color:var(--red);background:rgba(239,68,68,.08)" onclick="disconnectLive()">Disconnect</button>
+  </div>
+  <div class="live-row" style="gap:16px">
+    <span class="live-status" id="live-status">Not connected — simulation running</span>
+    <span class="live-note">Connects to <code style="color:var(--muted)">/api/v1/dev/stream</code> (SSE, debug-only endpoint). Every real HTTP request made to the backend appears here with full pipeline annotations. Simulation runs in parallel.</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT: LOG -->
+  <div class="panel">
+    <div class="phdr"><div class="hdot" style="background:var(--green)"></div>Live Operation Log</div>
+    <div id="log"></div>
+  </div>
+
+  <!-- CENTER: PIPELINE -->
+  <div class="center panel">
+    <div class="phdr"><div class="hdot" style="background:var(--blue)"></div>Request Pipeline — Full Stack Trace</div>
+    <svg id="psvg" viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arr" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#2a2d35"/>
+        </marker>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glow-sm">
+          <feGaussianBlur stdDeviation="2" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+        <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#111520" stroke-width=".6"/>
+      </pattern>
+      <rect width="800" height="320" fill="url(#grid)"/>
+      <g id="edges"></g>
+      <g id="nodes"></g>
+      <g id="pkts"></g>
+    </svg>
+    <!-- SECURITY LAYER PILLS -->
+    <div class="sec-strip">
+      <div class="sec-pill" id="sp-jwt"><div class="sp-dot" style="color:var(--blue)"></div>JWT Auth</div>
+      <div class="sec-pill" id="sp-mfa"><div class="sp-dot" style="color:var(--purple)"></div>TOTP MFA</div>
+      <div class="sec-pill" id="sp-rbac"><div class="sp-dot" style="color:#a78bfa")></div>RBAC 6-role</div>
+      <div class="sec-pill" id="sp-mime"><div class="sp-dot" style="color:var(--cyan)"></div>Magic-byte MIME</div>
+      <div class="sec-pill" id="sp-kms"><div class="sp-dot" style="color:var(--amber)"></div>KMS Wrapped Key</div>
+      <div class="sec-pill" id="sp-aes"><div class="sp-dot" style="color:var(--amber)"></div>AES-256-GCM</div>
+      <div class="sec-pill" id="sp-hkdf"><div class="sp-dot" style="color:var(--amber)"></div>HKDF-SHA-256</div>
+      <div class="sec-pill" id="sp-int"><div class="sp-dot" style="color:var(--pink)"></div>Integrity Hash</div>
+      <div class="sec-pill" id="sp-rl"><div class="sp-dot" style="color:var(--red)"></div>Rate Limit</div>
+      <div class="sec-pill" id="sp-aud"><div class="sp-dot" style="color:var(--orange)"></div>Audit Chain</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: CHAIN + CHUNKS -->
+  <div class="right panel">
+    <div class="phdr"><div class="hdot" style="background:var(--amber)"></div>Tamper-Evident Audit Hash Chain</div>
+    <div class="chain-scroll" id="chain"></div>
+    <div class="phdr" style="margin-top:1px"><div class="hdot" style="background:var(--cyan)"></div>AES-256-GCM Chunk Engine — 1 MB / chunk</div>
+    <div class="chunk-wrap" id="chunks"></div>
+  </div>
+
+  <!-- API MONITOR BAR -->
+  <div class="apibar">
+    <span class="api-lbl">API</span>
+    <div class="ep" id="ep-login"><div class="ep-dot"></div><span class="mth POST">POST</span>/api/v1/auth/login</div>
+    <div class="ep" id="ep-mfa"><div class="ep-dot"></div><span class="mth POST">POST</span>/api/v1/auth/mfa/verify</div>
+    <div class="ep" id="ep-su"><div class="ep-dot"></div><span class="mth POST">POST</span>/auth/mfa/step-up</div>
+    <div class="ep" id="ep-upload"><div class="ep-dot"></div><span class="mth POST">POST</span>/cases/{id}/documents</div>
+    <div class="ep" id="ep-dl"><div class="ep-dot"></div><span class="mth GET">GET</span>/documents/{id}/download</div>
+    <div class="ep" id="ep-pv"><div class="ep-dot"></div><span class="mth GET">GET</span>/documents/{id}/preview</div>
+    <div class="ep" id="ep-share"><div class="ep-dot"></div><span class="mth POST">POST</span>/documents/{id}/share</div>
+    <div class="ep" id="ep-info"><div class="ep-dot"></div><span class="mth GET">GET</span>/share/{token}/info</div>
+    <div class="ep" id="ep-otp"><div class="ep-dot"></div><span class="mth POST">POST</span>/share/{token}/request-otp</div>
+    <div class="ep" id="ep-dl2"><div class="ep-dot"></div><span class="mth POST">POST</span>/share/{token}/download</div>
+    <div class="ep" id="ep-audit"><div class="ep-dot"></div><span class="mth GET">GET</span>/audit/events</div>
+    <div class="ep" id="ep-cases"><div class="ep-dot"></div><span class="mth GET">GET</span>/cases</div>
+    <div class="ep" id="ep-rev"><div class="ep-dot"></div><span class="mth DELETE">DELETE</span>/shares/{id}</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  PRAMAAN Visualization Engine v2
+// ═══════════════════════════════════════════════════════════════════
+const C={bg:'#0a0c10',surface:'#111318',border:'#2a2d35',text:'#e8eaf0',muted:'#8b8fa8',faint:'#555869',blue:'#3b82f6',green:'#10b981',amber:'#f59e0b',red:'#ef4444',purple:'#8b5cf6',cyan:'#06b6d4',pink:'#ec4899',lime:'#84cc16',orange:'#f97316'};
+
+// ── PIPELINE NODES ──
+// viewBox 0 0 800 320
+const NODES=[
+  {id:'client', x:52,  y:160, r:22, label:['Client'],       color:C.blue,   icon:'◉'},
+  {id:'jwt',    x:170, y:72,  r:20, label:['JWT Auth'],      color:C.blue,   icon:'⊕'},
+  {id:'mfa',    x:170, y:248, r:20, label:['TOTP MFA'],      color:C.purple, icon:'⌘'},
+  {id:'rbac',   x:308, y:160, r:22, label:['RBAC','Engine'], color:C.purple, icon:'⊛'},
+  {id:'docsvc', x:450, y:160, r:22, label:['Document','Svc'],color:C.cyan,   icon:'▣'},
+  {id:'crypto', x:590, y:68,  r:20, label:['Crypto','AES'],  color:C.amber,  icon:'⚙'},
+  {id:'hkdf',   x:720, y:68,  r:18, label:['HKDF'],          color:C.amber,  icon:'⌬'},
+  {id:'store',  x:680, y:190, r:20, label:['Chunk','Store'], color:C.green,  icon:'⬛'},
+  {id:'db',     x:530, y:278, r:20, label:['PostgreSQL'],    color:C.lime,   icon:'⬜'},
+  {id:'audit',  x:370, y:290, r:20, label:['Audit','Chain'], color:C.orange, icon:'≡'},
+  {id:'sign',   x:760, y:278, r:18, label:['Ed25519'],       color:C.cyan,   icon:'✦'},
+];
+const NM={};
+NODES.forEach(n=>NM[n.id]=n);
+
+const EDGES=[
+  ['client','jwt',  'Bearer token'],
+  ['client','mfa',  'TOTP code'],
+  ['jwt',   'rbac', 'identity'],
+  ['mfa',   'rbac', 'MFA verified'],
+  ['rbac',  'docsvc','authorized'],
+  ['docsvc','crypto','raw bytes'],
+  ['crypto','hkdf', 'key request'],
+  ['hkdf',  'crypto','32-byte key'],
+  ['crypto','store', 'ciphertext+tag'],
+  ['docsvc','db',   'metadata'],
+  ['store', 'db',   'chunk refs'],
+  ['store', 'sign', 'doc hash'],
+  ['docsvc','audit','event'],
+  ['db',    'audit','record'],
+  ['audit', 'client','ack'],
+];
+
+const NS='http://www.w3.org/2000/svg';
+const EG=document.getElementById('edges');
+const NG=document.getElementById('nodes');
+const PG=document.getElementById('pkts');
+
+function svel(tag,attrs){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e;}
+
+const EP_CACHE={};
+EDGES.forEach(([f,t])=>{
+  const fn=NM[f],tn=NM[t];
+  const dx=tn.x-fn.x,dy=tn.y-fn.y,len=Math.hypot(dx,dy);
+  const nx=dx/len,ny=dy/len;
+  const x1=fn.x+nx*(fn.r+3),y1=fn.y+ny*(fn.r+3);
+  const x2=tn.x-nx*(tn.r+5),y2=tn.y-ny*(tn.r+5);
+  EP_CACHE[`${f}-${t}`]={x1,y1,x2,y2};
+  const line=svel('line',{x1,y1,x2,y2,stroke:C.border,'stroke-width':'1.3','marker-end':'url(#arr)',id:`e-${f}-${t}`});
+  EG.appendChild(line);
+});
+
+NODES.forEach(n=>{
+  const g=svel('g',{id:`nd-${n.id}`,transform:`translate(${n.x},${n.y})`});
+  g.appendChild(svel('circle',{r:n.r+9,fill:n.color,opacity:'.06',id:`ng-${n.id}`}));
+  g.appendChild(svel('circle',{r:n.r,fill:C.surface,stroke:C.border,'stroke-width':'1.5',id:`nr-${n.id}`}));
+  const ic=svel('text',{'text-anchor':'middle','dominant-baseline':'central',fill:n.color,'font-size':n.r*.72,'font-family':'Inter,sans-serif'});
+  ic.textContent=n.icon;g.appendChild(ic);
+  n.label.forEach((l,i)=>{
+    const lb=svel('text',{'text-anchor':'middle',x:'0',y:String(n.r+10+i*12),fill:C.muted,'font-size':'8.5','font-family':'Inter,sans-serif','font-weight':'500'});
+    lb.textContent=l;g.appendChild(lb);
+  });
+  NG.appendChild(g);
+});
+
+function flashNode(id,col){
+  const r=document.getElementById(`nr-${id}`),g=document.getElementById(`ng-${id}`);
+  if(!r)return;
+  r.setAttribute('stroke',col);r.setAttribute('stroke-width','2.5');
+  if(g)g.setAttribute('opacity','.2');
+  setTimeout(()=>{r.setAttribute('stroke',C.border);r.setAttribute('stroke-width','1.5');if(g)g.setAttribute('opacity','.06');},600);
+}
+
+function pkt(fid,tid,col,sz=4){
+  const ep=EP_CACHE[`${fid}-${tid}`];if(!ep)return;
+  const {x1,y1,x2,y2}=ep;
+  const c=svel('circle',{r:sz,fill:col,opacity:'.9',filter:'url(#glow-sm)'});
+  PG.appendChild(c);
+  const t0=performance.now(),dur=520+Math.random()*130;
+  function step(now){
+    const t=Math.min((now-t0)/dur,1);
+    const e=t<.5?2*t*t:-1+(4-2*t)*t;
+    c.setAttribute('cx',x1+(x2-x1)*e);c.setAttribute('cy',y1+(y2-y1)*e);
+    c.setAttribute('opacity',t>.88?String(.9*(1-(t-.88)/.12)):'.9');
+    if(t<1)requestAnimationFrame(step);else{c.remove();flashNode(tid,col);}
+  }
+  requestAnimationFrame(step);
+}
+
+// ── LOG ──
+const logEl=document.getElementById('log');
+function log(tag,cls,msg,val='',live=false){
+  const now=new Date();
+  const ts=`${h2(now.getHours())}:${h2(now.getMinutes())}:${h2(now.getSeconds())}.${h3(now.getMilliseconds())}`;
+  const d=document.createElement('div');d.className='ll';
+  d.innerHTML=`<span class="lt">${ts}</span><span class="ltag ${cls}">[${tag}]</span><span class="lm">${msg}</span>${val?`<span class="lv">${val}</span>`:''}${live?`<span style="color:var(--green);font-size:9px;margin-left:4px">●LIVE</span>`:''}`;
+  logEl.appendChild(d);
+  while(logEl.children.length>200)logEl.removeChild(logEl.firstChild);
+  requestAnimationFrame(()=>{d.classList.add('v');logEl.scrollTop=logEl.scrollHeight;});
+}
+function sep(){
+  const d=document.createElement('div');d.className='ll v lsep';
+  d.innerHTML=`<span class="lt"></span><span class="lm" style="color:var(--border)">${'─'.repeat(46)}</span>`;
+  logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight;
+}
+function h2(n){return String(n).padStart(2,'0');}
+function h3(n){return String(n).padStart(3,'0');}
+
+// ── METRICS ──
+const MX={chunks:0,keys:0,events:0,depth:0,sessions:4};
+function bump(k,n=1){
+  MX[k]+=n;
+  const el=document.getElementById({chunks:'mc',keys:'mk',events:'me',depth:'md',sessions:'ms'}[k]);
+  if(!el)return;el.textContent=MX[k].toLocaleString();
+  el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),300);
+}
+
+// ── API HIT ──
+function apiHit(id){
+  const el=document.getElementById(id);if(!el)return;
+  el.classList.remove('hit');void el.offsetWidth;el.classList.add('hit');
+  setTimeout(()=>el.classList.remove('hit'),1100);
+}
+
+// ── SECURITY PILLS ──
+function litPill(id,state){
+  const el=document.getElementById(id);if(!el)return;
+  el.className='sec-pill'+(state==='lit'?' lit':state==='busy'?' busy':'');
+}
+
+// ── AUDIT HASH CHAIN ──
+const chainEl=document.getElementById('chain');
+let prevHash='0000000000000000';let chainDepth=0;
+function addChainBlock(ev,actor){
+  const ph=prevHash;
+  const nh=randHex(16);prevHash=nh;chainDepth++;
+  if(chainEl.children.length>0){const l=document.createElement('div');l.className='clink';l.textContent='↓';chainEl.appendChild(l);}
+  const b=document.createElement('div');b.className='hblk';
+  b.innerHTML=`<div class="hblk-top"><span class="hblk-ev">#${chainDepth} ${ev}</span><span class="hblk-actor">${actor}</span></div>
+<div class="hblk-hashes"><span class="hh">prev: <span class="p">${ph.slice(0,12)}…</span></span><span class="hh">hash: <span class="c">${nh}</span></span></div>`;
+  chainEl.appendChild(b);
+  while(chainEl.children.length>14)chainEl.removeChild(chainEl.firstChild);
+  requestAnimationFrame(()=>{b.classList.add('v');chainEl.scrollTop=chainEl.scrollHeight;});
+  bump('depth');bump('events');
+}
+
+// ── CHUNK ENGINE ──
+const chunksEl=document.getElementById('chunks');
+let batchN=0;
+function newBatch(name,size,n){
+  while(chunksEl.children.length>=3)chunksEl.removeChild(chunksEl.firstChild);
+  const bid=batchN++;
+  const card=document.createElement('div');card.className='doc-card';
+  card.innerHTML=`<div class="doc-card-hdr"><span class="dc-name">${name}</span><span class="dc-size">${size} · ${n}×1MB chunks</span></div><div class="chunks-list" id="cl-${bid}"></div>`;
+  chunksEl.appendChild(card);
+  const list=document.getElementById(`cl-${bid}`);
+  for(let i=0;i<n;i++){
+    const row=document.createElement('div');row.className='crow';
+    row.innerHTML=`<span class="cid">C${String(i).padStart(3,'0')}</span><div class="cbar" id="cb-${bid}-${i}"><div class="cf" style="width:0"></div><span class="cl">PENDING</span></div><span class="ckey" id="ck-${bid}-${i}">—</span>`;
+    list.appendChild(row);
+  }
+  return bid;
+}
+function encBar(bid,i){
+  const bar=document.getElementById(`cb-${bid}-${i}`);
+  const key=document.getElementById(`ck-${bid}-${i}`);
+  if(!bar)return;
+  bar.classList.add('enc');bar.querySelector('.cl').textContent='ENCRYPTING';
+  const scan=document.createElement('div');scan.className='cscan';bar.appendChild(scan);
+  setTimeout(()=>scan.remove(),600);
+  if(key)key.textContent=`k:${randHex(6)}`;
+  let p=0;const fill=bar.querySelector('.cf');
+  const itv=setInterval(()=>{p+=Math.random()*20+8;if(p>=100){p=100;clearInterval(itv);bar.classList.remove('enc');bar.classList.add('done');fill.style.width='100%';bar.querySelector('.cl').textContent='✓ ENCRYPTED';if(key){key.textContent=`iv:${randHex(6)}`;key.classList.add('k');}}else fill.style.width=p+'%';},30);
+}
+
+// ── HELPERS ──
+function randHex(n){return Array.from({length:Math.ceil(n/2)},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('').slice(0,n);}
+function uid(){return Math.random().toString(36).slice(2,10);}
+function delay(ms){return new Promise(r=>setTimeout(r,ms*speedFactor));}
+
+// ── SPEED & PAUSE ──
+let speedFactor=1;let paused=false;let pauseResolve=null;
+const SPEEDS=[1,.5,.33];let speedIdx=0;
+function cycleSpeed(){speedIdx=(speedIdx+1)%SPEEDS.length;speedFactor=SPEEDS[speedIdx];document.getElementById('speed-btn').textContent=`⚡ ${[1,2,3][speedIdx]}×`;}
+function togglePause(){
+  paused=!paused;
+  document.getElementById('pause-btn').textContent=paused?'▶ Resume':'⏸ Pause';
+  if(!paused&&pauseResolve){pauseResolve();pauseResolve=null;}
+}
+async function checkPause(){
+  if(!paused)return;
+  await new Promise(r=>{pauseResolve=r;});
+}
+
+// ── SCENARIO STATE ──
+let running=false;let autoLoop=true;let scIdx=0;
+function setPlaying(i){
+  [0,1,2,3].forEach(j=>{
+    document.getElementById(`sc${j}`).className='sc-btn'+(j===i?' playing':'');
+    document.getElementById(`ss${j}`).textContent=j===i?'▶ RUNNING':'';
+  });
+  const names=['LOGIN + MFA','UPLOAD + ENCRYPT','SECURE SHARE + OTP','DECRYPT + VERIFY'];
+  document.getElementById('live-toggle').title=names[i]||'';
+}
+function markDone(i){
+  document.getElementById(`sc${i}`).classList.replace('playing','done');
+  document.getElementById(`ss${i}`).textContent='✓';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SCENARIO 1 — LOGIN + TOTP MFA
+// ═══════════════════════════════════════════════════════════════════
+async function scene0(){
+  sep();log('SYS','SYS','── SCENARIO 1: Officer login with TOTP MFA ──');
+  litPill('sp-rl','busy');
+  apiHit('ep-login');
+  log('AUTH','AUTH','POST /api/v1/auth/login','HTTP 200 | Flask-Limiter: LOGIN_LIMITS applied');
+  await delay(300);await checkPause();
+
+  log('AUTH','AUTH','LoginSchema().load(request.json)','marshmallow unknown=RAISE — validated');
+  await delay(200);await checkPause();
+
+  pkt('client','jwt',C.blue);
+  log('AUTH','AUTH','auth_service.authenticate(email, password)','');
+  await delay(380);await checkPause();
+
+  log('AUTH','AUTH','bcrypt.checkpw(pw, stored_hash)','rounds=12 | 72-byte cap enforced → MATCH');
+  litPill('sp-jwt','lit');flashNode('jwt',C.blue);
+  await delay(260);await checkPause();
+
+  log('AUTH','AUTH','MFA set up → begin_session() returns:','{temp_token, mfa_required: true}');
+  await delay(250);await checkPause();
+
+  apiHit('ep-mfa');
+  log('MFA','MFA','POST /api/v1/auth/mfa/verify','HTTP 200 | MFA_LIMITS: 5/min');
+  pkt('client','mfa',C.purple);
+  await delay(380);await checkPause();
+
+  log('MFA','MFA','MFAVerifySchema().load() → {temp_token, totp_code}','validated');
+  await delay(200);await checkPause();
+
+  log('MFA','MFA','pyotp.TOTP.verify(code, valid_window=1)','RFC 6238 — drift tolerance ±30s → VALID');
+  litPill('sp-mfa','lit');flashNode('mfa',C.purple);
+  pkt('mfa','rbac',C.purple);pkt('jwt','rbac',C.blue);
+  await delay(350);await checkPause();
+
+  log('AUDIT','AUDIT','audit_service.record(MFA_VERIFIED)','pg_advisory_xact_lock on audit sequence');
+  addChainBlock('MFA_VERIFIED','officer_rajesh');await delay(180);await checkPause();
+
+  log('AUDIT','AUDIT','audit_service.record(LOGIN)','chain: prev_hash → SHA-256(prev‖event_data)');
+  addChainBlock('LOGIN','officer_rajesh');bump('sessions');
+  await delay(200);await checkPause();
+
+  log('AUTH','AUTH','Response:',`{access_token: "eyJ…", expires_in: 28800}`);
+  pkt('audit','client',C.green);
+  log('AUTH','AUTH','Session active ✓','JWT TTL 8h | role: CASE_OFFICER');
+  litPill('sp-jwt','');litPill('sp-mfa','');litPill('sp-rl','');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SCENARIO 2 — UPLOAD + AES-256-GCM CHUNKED ENCRYPTION
+// ═══════════════════════════════════════════════════════════════════
+async function scene1(){
+  sep();log('SYS','SYS','── SCENARIO 2: Document upload — chunked AES-256-GCM encryption ──');
+  litPill('sp-rl','busy');
+  apiHit('ep-upload');
+  log('CHUNK','CHUNK','POST /api/v1/cases/{case_id}/documents','multipart/form-data | UPLOAD_LIMITS');
+  await delay(280);await checkPause();
+
+  pkt('client','jwt',C.blue);
+  log('AUTH','AUTH','@jwt_required() → JWT signature + expiry valid','identity: officer_rajesh');
+  await delay(320);await checkPause();
+
+  pkt('jwt','rbac',C.purple);
+  log('RBAC','RBAC','@require_roles(SUPER_ADMIN, CASE_OFFICER)','role=CASE_OFFICER → MATCH');
+  await delay(280);await checkPause();
+  log('RBAC','RBAC','case_service.get_case_for_user(case_id, user_id)','case FIR-2026-0847 → MEMBER ✓ status=OPEN');
+  litPill('sp-rbac','lit');flashNode('rbac',C.purple);
+  await delay(260);await checkPause();
+
+  pkt('rbac','docsvc',C.cyan);
+  const filename='FIR_2026_0847_charge_sheet.pdf';
+  log('MIME','MIME',`document_service.upload_document()  file="${filename}"  3.6 MB`,'');
+  await delay(200);await checkPause();
+
+  log('MIME','MIME','_detect_mime(head[0:2048], filename)','magic bytes: %PDF → application/pdf ✓ (ALLOWED)');
+  litPill('sp-mime','lit');
+  await delay(220);await checkPause();
+
+  log('DB','DB','Document(status=UPLOADING)  db.session.flush()','id assigned before commit — rollback-safe');
+  const docId=uid();
+  log('KMS','KMS','secrets.token_bytes(32) → master_key','kms.store_key() — wrapped AES-256-GCM under KMS_WRAPPING_KEY (env var, not in DB)');
+  litPill('sp-kms','lit');
+  await delay(250);await checkPause();
+
+  pkt('docsvc','crypto',C.amber);flashNode('docsvc',C.cyan);
+  log('CRYPT','CRYPT',`CHUNK_SIZE_BYTES = 1 048 576 (1 MB)  →  ceil(3.6 MB / 1 MB) = 4 chunks`,'');
+  litPill('sp-aes','busy');litPill('sp-hkdf','busy');
+  await delay(220);await checkPause();
+
+  const bid=newBatch(filename,'3.6 MB',4);
+  for(let i=0;i<4;i++){
+    const chunkKey=randHex(8);const iv=randHex(6);
+    log('CRYPT','CRYPT',`HKDF(master_key, salt=doc_id, info="chunk-${i}")`,`→ ${chunkKey}… (32 bytes)`);
+    litPill('sp-hkdf','busy');pkt('crypto','hkdf',C.amber);
+    await delay(110);await checkPause();pkt('hkdf','crypto',C.amber);await delay(90);await checkPause();
+
+    log('CRYPT','CRYPT',`os.urandom(12) → iv = ${iv}… (96-bit nonce)`,'');
+    log('CRYPT','CRYPT',`AESGCM(chunk_key).encrypt(iv, plaintext, None)`,`→ ciphertext + 16-byte GCM auth tag`);
+    encBar(bid,i);bump('chunks');bump('keys');
+    await delay(60);await checkPause();
+
+    log('STORE','STORE',`SHA-256(ciphertext) → chunk_hash  chunk_store.put_chunk(chunk_${i})`,`local disk ✓`);
+    pkt('crypto','store',C.green);flashNode('store',C.green);litPill('sp-aes','busy');
+    await delay(90);await checkPause();
+  }
+
+  await delay(180);await checkPause();
+  log('INTEG','INTEG','integrity_hash = SHA-256("".join(chunk_hashes))','document-level check — verified on every download');
+  litPill('sp-int','lit');
+  await delay(200);await checkPause();
+
+  pkt('store','sign',C.cyan);
+  log('INTEG','INTEG','Document(status=ACTIVE) — db.session.commit()','atomic: doc + 4 chunk rows + wrapped key');
+  flashNode('sign',C.cyan);
+  await delay(280);await checkPause();
+
+  pkt('docsvc','db',C.lime);pkt('store','db',C.lime);
+  log('DB','DB','INSERT documents + document_chunks + document_keys','NO plaintext content in PostgreSQL — chunk refs only');
+  flashNode('db',C.lime);
+  await delay(300);await checkPause();
+
+  pkt('docsvc','audit',C.orange);
+  log('AUDIT','AUDIT','audit_service.record(DOCUMENT_UPLOADED)','pg_advisory_xact_lock(audit_seq) → chain append');
+  addChainBlock('DOCUMENT_UPLOADED','officer_rajesh');
+  await delay(200);await checkPause();
+
+  pkt('audit','client',C.green);
+  log('CHUNK','CHUNK','Upload complete ✓',`doc_id=${docId} | 4 chunks encrypted | integrity_hash stored`);
+  litPill('sp-rbac','');litPill('sp-mime','');litPill('sp-kms','');litPill('sp-aes','');litPill('sp-hkdf','');litPill('sp-int','');litPill('sp-rl','');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SCENARIO 3 — SECURE SHARE + OTP EMAIL VERIFICATION
+// ═══════════════════════════════════════════════════════════════════
+async function scene2(){
+  sep();log('SYS','SYS','── SCENARIO 3: Create share link → OTP email → recipient access ──');
+  litPill('sp-rl','busy');
+  apiHit('ep-share');
+  log('SHARE','SHARE','POST /api/v1/documents/{id}/share','step-up MFA required for share creation');
+  await delay(280);await checkPause();
+
+  pkt('client','jwt',C.blue);
+  log('AUTH','AUTH','@jwt_required() + @require_roles(SUPER_ADMIN, CASE_OFFICER)','officer_rajesh → CASE_OFFICER ✓');
+  await delay(340);await checkPause();
+
+  pkt('jwt','rbac',C.purple);
+  log('RBAC','RBAC','Step-up MFA check: JWT claims[step_up_verified_at]','within 300s window → VALID (step-up granted)');
+  litPill('sp-mfa','lit');litPill('sp-rbac','lit');flashNode('rbac',C.purple);
+  await delay(300);await checkPause();
+
+  pkt('rbac','docsvc',C.cyan);
+  const rawToken=randHex(24);const tokenHash=randHex(16);
+  log('SHARE','SHARE','sharing_service.create_share_document(doc_id, creator, opts)','');
+  await delay(200);await checkPause();
+
+  log('SHARE','SHARE','secrets.token_urlsafe(32) → raw_token',`${rawToken}… (returned ONCE to caller, never stored)`);
+  await delay(180);await checkPause();
+  log('SHARE','SHARE','SHA-256(raw_token) → token_hash',`${tokenHash}… (only this stored in DocumentShareLink row)`);
+  await delay(200);await checkPause();
+
+  pkt('docsvc','db',C.lime);
+  log('DB','DB','INSERT document_share_links(token_hash, expires_at=+24h, max_uses=1, allow_download=False)','');
+  flashNode('db',C.lime);
+  await delay(280);await checkPause();
+
+  pkt('docsvc','audit',C.orange);
+  log('AUDIT','AUDIT','audit_service.record(DOCUMENT_SHARED)','');
+  addChainBlock('DOCUMENT_SHARED','officer_rajesh');
+  await delay(300);await checkPause();
+
+  log('SHARE','SHARE','raw_token returned to officer → sent to prosecutor_meena out-of-band','');
+  await delay(350);await checkPause();
+
+  // Recipient flow
+  sep();log('SYS','SYS','── Recipient side: prosecutor_meena ──');
+  apiHit('ep-info');
+  log('SHARE','SHARE','GET /api/v1/share/{token}/info','SHARE_INFO_LIMITS | no auth required | no side effects');
+  await delay(300);await checkPause();
+  log('SHARE','SHARE','SHA-256(token) → look up DocumentShareLink','not revoked, not expired → public info returned');
+  await delay(250);await checkPause();
+
+  apiHit('ep-otp');
+  log('OTP','OTP','POST /api/v1/share/{token}/request-otp  {email: "meena@court.gov.in"}','OTP_REQUEST_LIMITS: 3/hour');
+  await delay(280);await checkPause();
+
+  log('OTP','OTP','sharing_service.validate_token_no_increment(token, email)','email gate check — allowed_email match ✓');
+  await delay(200);await checkPause();
+  const otp=String(Math.floor(100000+Math.random()*900000));
+  log('OTP','OTP','email_otp.generate_and_send(token, email, "document")','6-digit OTP generated');
+  await delay(150);await checkPause();
+  log('OTP','OTP','OTP store key = SHA-256(token + ":" + email_lower)','SHA-256(otp) stored in-memory dict — NOT in DB');
+  log('OTP','OTP','TTL: 10 minutes | max_attempts: 3','Gmail SMTP → OTP dispatched to meena@court.gov.in');
+  await delay(220);await checkPause();
+
+  log('AUDIT','AUDIT','audit_service.record(SHARE_OTP_SENT)','');
+  addChainBlock('SHARE_OTP_SENT','prosecutor_meena');
+  await delay(300);await checkPause();
+
+  apiHit('ep-dl2');
+  log('OTP','OTP','POST /api/v1/share/{token}/download  {email, otp}','SHARE_ACCESS_LIMITS');
+  await delay(280);await checkPause();
+
+  log('OTP','OTP','email_otp.verify_or_raise(token, email, otp)','OTP verified IN-MEMORY before use_count incremented');
+  log('OTP','OTP','SHA-256(otp_input) == stored_hash','MAX_ATTEMPTS=3 | single-use → entry deleted on match ✓');
+  await delay(250);await checkPause();
+
+  log('SHARE','SHARE','sharing_service.validate_token(token, email)','atomic conditional UPDATE: use_count++ WHERE not exhausted/revoked → RETURNING');
+  pkt('docsvc','db',C.lime);flashNode('db',C.lime);
+  await delay(280);await checkPause();
+
+  log('AUDIT','AUDIT','audit_service.record(SHARE_LINK_ACCESSED)','actor: prosecutor_meena | scope: DOCUMENT');
+  addChainBlock('SHARE_LINK_ACCESSED','prosecutor_meena');
+  await delay(200);await checkPause();
+
+  log('SHARE','SHARE','allow_download=False → preview_document_public()','raw bytes never streamed — server-side PNG render only');
+  apiHit('ep-pv');
+  pkt('audit','client',C.green);
+  log('SHARE','SHARE','Secure share complete ✓','Zero trust: no account needed, no raw file served');
+  litPill('sp-rbac','');litPill('sp-mfa','');litPill('sp-rl','');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SCENARIO 4 — DOWNLOAD + FULL INTEGRITY VERIFICATION
+// ═══════════════════════════════════════════════════════════════════
+async function scene3(){
+  sep();log('SYS','SYS','── SCENARIO 4: Investigator downloads document — full integrity verify ──');
+  litPill('sp-rl','busy');
+  apiHit('ep-dl');
+  log('CHUNK','CHUNK','GET /api/v1/documents/{id}/download','DEFAULT_LIMITS');
+  await delay(270);await checkPause();
+
+  pkt('client','jwt',C.blue);
+  log('AUTH','AUTH','@jwt_required() → JWT valid','identity: investigator_arjun (INVESTIGATOR)');
+  await delay(330);await checkPause();
+
+  pkt('jwt','rbac',C.purple);
+  log('RBAC','RBAC','@require_roles(SUPER_ADMIN, CASE_OFFICER, INVESTIGATOR, PROSECUTOR)','INVESTIGATOR → MATCH');
+  await delay(270);await checkPause();
+  log('RBAC','RBAC','case_service.get_case_for_user(case_id, user_id)','member of FIR-2026-0847 → access granted');
+  log('RBAC','RBAC','doc.case_id check — doc not deleted','404 (not 403) if no access — identity not revealed');
+  litPill('sp-rbac','lit');flashNode('rbac',C.purple);
+  await delay(270);await checkPause();
+
+  pkt('rbac','docsvc',C.cyan);
+  pkt('docsvc','db',C.lime);
+  log('DB','DB','DocumentChunk.query.filter_by(doc_id).order_by(chunk_index)','4 chunks loaded | len(chunks) == doc.total_chunks ✓');
+  flashNode('db',C.lime);
+  await delay(300);await checkPause();
+
+  log('KMS','KMS','kms.get_key(doc.id) → unwrap master key','AES-256-GCM decrypt wrapped key under KMS_WRAPPING_KEY');
+  litPill('sp-kms','lit');
+  await delay(220);await checkPause();
+
+  log('STORE','STORE','chunk_store.get_chunk(chunk.storage_key)  ×4','reading ciphertext from local disk');
+  pkt('store','crypto',C.amber);
+  await delay(260);await checkPause();
+
+  const bid=newBatch('FIR_2026_0847_charge_sheet.pdf [decrypt]','3.6 MB',4);
+  litPill('sp-aes','busy');litPill('sp-hkdf','busy');litPill('sp-int','busy');
+
+  for(let i=0;i<4;i++){
+    log('INTEG','INTEG',`SHA-256(ciphertext_${i}) == chunk.chunk_hash`,`→ MATCH ✓ (chunk store not tampered)`);
+    await delay(90);await checkPause();
+
+    pkt('crypto','hkdf',C.amber);await delay(80);await checkPause();
+    pkt('hkdf','crypto',C.amber);
+    log('CRYPT','CRYPT',`HKDF(master_key, salt=doc_id, info="chunk-${i}") → chunk_key`,`derive same key as upload`);
+    await delay(90);await checkPause();
+
+    log('CRYPT','CRYPT',`AESGCM(chunk_key).decrypt(iv, ciphertext, None)`,`GCM auth tag verified automatically → plaintext chunk_${i}`);
+    encBar(bid,i);bump('chunks');bump('keys');
+    await delay(120);await checkPause();
+  }
+
+  await delay(180);await checkPause();
+  log('INTEG','INTEG','SHA-256("".join(chunk_hashes)) == doc.integrity_hash','document-level integrity: VERIFIED ✓');
+  litPill('sp-int','lit');flashNode('sign',C.cyan);pkt('store','sign',C.cyan);
+  await delay(260);await checkPause();
+
+  log('INTEG','INTEG','ALL 3 checks passed: chunk hashes ✓, GCM tags ✓, integrity_hash ✓','plaintext assembled — no byte served before full verification');
+  await delay(250);await checkPause();
+
+  pkt('docsvc','audit',C.orange);
+  log('AUDIT','AUDIT','audit_service.record(DOCUMENT_DOWNLOADED)','');
+  addChainBlock('DOCUMENT_DOWNLOADED','investigator_arjun');
+  await delay(200);await checkPause();
+
+  pkt('audit','client',C.green);
+  log('CHUNK','CHUNK','Streaming plaintext to client ✓','plaintext NEVER written to disk — in-memory only (prototype)');
+  litPill('sp-rbac','');litPill('sp-kms','');litPill('sp-aes','');litPill('sp-hkdf','');litPill('sp-int','');litPill('sp-rl','');
+}
+
+const SCENES=[scene0,scene1,scene2,scene3];
+
+// ── SCENARIO RUNNER ──
+async function runScene(i,auto=false){
+  if(running&&!auto)return;
+  if(!auto){
+    // Manual click: drop out of live mode cleanly first.
+    if(_sse){_sse.close();_sse=null;_liveConnected=false;setLiveStatus('Disconnected — simulation running','');document.getElementById('live-ctrl-badge').style.display='none';document.getElementById('live-toggle').className='live-btn';}
+    autoLoop=false;
+    paused=false;
+    document.getElementById('pause-btn').textContent='⏸ Pause';
+    if(pauseResolve){pauseResolve();pauseResolve=null;}
+  }
+  running=true;scIdx=i;setPlaying(i);
+  try{await SCENES[i]();}catch(e){}
+  markDone(i);running=false;
+  if(auto&&autoLoop){
+    await new Promise(r=>setTimeout(r,1800));
+    if(autoLoop)runScene((i+1)%4,true);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LIVE MODE — SSE log streaming from Flask dev_logs blueprint
+// ═══════════════════════════════════════════════════════════════════
+let liveOpen=false;
+let _sse=null;          // EventSource instance
+let _liveConnected=false;
+
+function toggleLive(){
+  liveOpen=!liveOpen;
+  document.getElementById('live-panel').className='live-panel'+(liveOpen?' open':'');
+  document.getElementById('live-toggle').className='live-btn'+(liveOpen?' active':'');
+}
+function setLiveStatus(msg,cls){
+  const el=document.getElementById('live-status');
+  el.textContent=msg;el.className='live-status '+(cls||'');
+}
+
+function connectLive(){
+  const baseUrl=(document.getElementById('li-url').value||'http://localhost:5000').replace(/\/$/,'');
+  const jwt=(document.getElementById('li-jwt').value||'').trim();
+  if(!jwt){setLiveStatus('JWT token required — paste from login response','err');return;}
+
+  if(_sse){_sse.close();_sse=null;}
+  _liveConnected=false;
+  setLiveStatus('Opening SSE stream…','polling');
+
+  const url=`${baseUrl}/api/v1/dev/stream?token=${encodeURIComponent(jwt)}`;
+  _sse=new EventSource(url);
+
+  _sse.onopen=()=>{
+    _liveConnected=true;
+    setLiveStatus('● SSE stream open — receiving real Flask logs','ok');
+    document.getElementById('live-toggle').className='live-btn active';
+
+    // Stop the simulation — live events drive the pipeline from here.
+    autoLoop=false;
+    if(!paused){
+      paused=true;
+      document.getElementById('pause-btn').textContent='▶ Resume';
+    }
+    // Clear any "playing" highlight on scenario buttons
+    [0,1,2,3].forEach(j=>{
+      document.getElementById(`sc${j}`).className='sc-btn';
+      document.getElementById(`ss${j}`).textContent='';
+    });
+    // Show LIVE badge in the controls strip
+    document.getElementById('live-ctrl-badge').style.display='flex';
+
+    sep();
+    log('LIVE','LIVE','Simulation paused — pipeline driven by real backend logs','',true);
+    log('LIVE','LIVE','Make a request to the Flask server to see it here','',true);
+  };
+
+  _sse.onmessage=(e)=>{
+    let rec;
+    try{rec=JSON.parse(e.data);}catch{return;}
+    parseLiveRecord(rec);
+  };
+
+  _sse.onerror=()=>{
+    if(_liveConnected){
+      // Transient drop — EventSource will auto-retry (retry:3000 set by server).
+      setLiveStatus('SSE connection lost — retrying…','err');
+      _liveConnected=false;
+    } else {
+      // Never connected — backend unreachable or DEBUG=False.
+      setLiveStatus('Cannot reach backend — is Flask running with DEBUG=True?','err');
+      _sse.close();_sse=null;
+      document.getElementById('live-toggle').className='live-btn';
+      document.getElementById('live-ctrl-badge').style.display='none';
+      // Restore simulation.
+      autoLoop=true;
+      if(paused){
+        paused=false;
+        document.getElementById('pause-btn').textContent='⏸ Pause';
+        if(pauseResolve){pauseResolve();pauseResolve=null;}
+      }
+      if(!running)runScene(scIdx,true);
+    }
+  };
+}
+
+function disconnectLive(){
+  if(_sse){_sse.close();_sse=null;}
+  _liveConnected=false;
+  setLiveStatus('Disconnected — simulation running','');
+  document.getElementById('live-toggle').className='live-btn';
+  document.getElementById('live-ctrl-badge').style.display='none';
+
+  // Resume simulation from where it left off.
+  autoLoop=true;
+  if(paused){
+    paused=false;
+    document.getElementById('pause-btn').textContent='⏸ Pause';
+    if(pauseResolve){pauseResolve();pauseResolve=null;}
+  }
+  // If nothing is currently running, kick off the autoloop.
+  if(!running)runScene(scIdx,true);
+}
+
+// ── Log-line → animation mapping ──────────────────────────────────
+// The dev_logs blueprint emits lines like:
+//   "INFO     [pramaan.demo]  HTTP  POST /api/v1/auth/login  →  200  [45ms]"
+//   "INFO     [pramaan.demo]  AUTH  bcrypt.checkpw() → MATCH  ..."
+//   "INFO     [werkzeug]  127.0.0.1 ... "POST /api/v1/..." 200 -"
+// We parse `rec.msg` (the formatted string) and drive animations.
+
+// Regex helpers
+const R={
+  http:      /HTTP\s+(GET|POST|PUT|DELETE|PATCH)\s+(\S+)\s+→\s+(\d+)/,
+  werkzeug:  /"(GET|POST|PUT|DELETE|PATCH)\s+(\S+)\s+HTTP\/[\d.]+"\s+(\d+)/,
+  tag:       /^(\w+)\s{2,}/,                 // leading keyword like "AUTH  " or "CRYPT "
+};
+
+// Which tag prefix → { logTag, logClass, nodes, pills, apiId, chainEvent }
+const TAG_ANIM={
+  AUTH: { cls:'AUTH', nodes:[['client','jwt',C.blue]],        pills:['sp-jwt'],        api:'ep-login' },
+  MFA:  { cls:'MFA',  nodes:[['client','mfa',C.purple],['mfa','rbac',C.purple]], pills:['sp-mfa'], api:'ep-mfa' },
+  RBAC: { cls:'RBAC', nodes:[['jwt','rbac',C.purple],['rbac','docsvc',C.cyan]], pills:['sp-rbac'] },
+  MIME: { cls:'MIME', nodes:[],                                pills:['sp-mime'] },
+  KMS:  { cls:'KMS',  nodes:[],                                pills:['sp-kms'] },
+  CRYPT:{ cls:'CRYPT',nodes:[['docsvc','crypto',C.amber],['crypto','hkdf',C.amber],['hkdf','crypto',C.amber]], pills:['sp-aes','sp-hkdf'] },
+  STORE:{ cls:'STORE',nodes:[['crypto','store',C.green]],      pills:[] },
+  INTEG:{ cls:'INTEG',nodes:[['store','sign',C.cyan]],         pills:['sp-int'] },
+  AUDIT:{ cls:'AUDIT',nodes:[['docsvc','audit',C.orange]],     pills:['sp-aud'], api:'ep-audit' },
+  SHARE:{ cls:'SHARE',nodes:[['docsvc','db',C.lime]],          pills:[], api:'ep-share' },
+  OTP:  { cls:'OTP',  nodes:[],                                pills:[], api:'ep-otp' },
+  DB:   { cls:'DB',   nodes:[['docsvc','db',C.lime]],          pills:[] },
+};
+
+// Map endpoint path → API monitor element
+function pathToApi(method,path,status){
+  if(/\/auth\/login/.test(path))      return 'ep-login';
+  if(/\/auth\/mfa\/verify/.test(path)) return 'ep-mfa';
+  if(/\/auth\/mfa\/step-up/.test(path))return 'ep-su';
+  if(/\/cases\/.+\/documents/.test(path)&&method==='POST') return 'ep-upload';
+  if(/\/documents\/.+\/download/.test(path)) return 'ep-dl';
+  if(/\/documents\/.+\/preview/.test(path))  return 'ep-pv';
+  if(/\/documents\/.+\/share/.test(path)&&method==='POST') return 'ep-share';
+  if(/\/share\/.+\/info/.test(path))         return 'ep-info';
+  if(/\/share\/.+\/request-otp/.test(path))  return 'ep-otp';
+  if(/\/share\/.+\/download/.test(path))     return 'ep-dl2';
+  if(/\/audit\/events/.test(path))           return 'ep-audit';
+  if(/\/cases/.test(path)&&method==='GET')   return 'ep-cases';
+  if(/\/shares\//.test(path)&&method==='DELETE') return 'ep-rev';
+  return null;
+}
+
+// Determine chain event name from path + method
+function pathToChain(method,path){
+  if(/\/auth\/login/.test(path))            return null; // LOGIN appended after MFA_VERIFIED
+  if(/\/auth\/mfa\/verify/.test(path))      return ['MFA_VERIFIED','[live]'];
+  if(/\/cases\/.+\/documents/.test(path)&&method==='POST') return ['DOCUMENT_UPLOADED','[live]'];
+  if(/\/documents\/.+\/download/.test(path)) return ['DOCUMENT_DOWNLOADED','[live]'];
+  if(/\/documents\/.+\/preview/.test(path))  return ['DOCUMENT_PREVIEWED','[live]'];
+  if(/\/documents\/.+\/share/.test(path)&&method==='POST') return ['DOCUMENT_SHARED','[live]'];
+  if(/\/share\/.+\/request-otp/.test(path))  return ['SHARE_OTP_SENT','[live]'];
+  if(/\/share\/.+\/download/.test(path))     return ['SHARE_LINK_ACCESSED','[live]'];
+  return null;
+}
+
+function parseLiveRecord(rec){
+  const msg=rec.msg||'';
+  const level=rec.level||'INFO';
+  const logger=rec.logger||'';
+  const isDemo=logger==='pramaan.demo';
+
+  // ── Skip werkzeug "dev/stream" heartbeats and SSE endpoint itself ──
+  if(msg.includes('/api/v1/dev')||msg.includes('heartbeat'))return;
+
+  // ── Parse werkzeug HTTP access log ────────────────────────────────
+  // These come from werkzeug, not pramaan.demo
+  const wz=R.werkzeug.exec(msg);
+  if(wz&&!isDemo){
+    const [,method,path,status]=wz;
+    const st=parseInt(status);
+    const apiId=pathToApi(method,path,st);
+    if(apiId)apiHit(apiId);
+    // werkzeug lines are already annotated by pramaan.demo; suppress duplicate display
+    return;
+  }
+
+  // ── Parse pramaan.demo annotation lines ───────────────────────────
+  if(!isDemo)return; // ignore non-demo loggers in display (werkzeug handled above)
+
+  // Extract the structured prefix (e.g. "HTTP ", "AUTH ", "CRYPT ", etc.)
+  const httpM=R.http.exec(msg);
+  if(httpM){
+    const [,method,path,status]=httpM;
+    const st=parseInt(status);
+    const ok=st<400;
+    const color=ok?C.green:C.red;
+    const apiId=pathToApi(method,path,st);
+    if(apiId)apiHit(apiId);
+    log('AUTH','AUTH',`${method} ${path}`,`${status} ${ok?'✓':'✗'}`,true);
+
+    // Flash client → jwt on any authenticated request
+    if(ok)pkt('client','jwt',color);
+
+    // Attach chain block on HTTP line for the primary event
+    const chain=pathToChain(method,path);
+    if(chain&&ok)addChainBlock(...chain);
+
+    // Flash appropriate security pill
+    if(!ok)litPill('sp-rl','busy');
+    return;
+  }
+
+  // Keyword-prefixed annotation lines ("AUTH  bcrypt…", "CRYPT HKDF…" etc.)
+  const tagM=R.tag.exec(msg.replace(/^[A-Z-]{4,12}\s+\[[^\]]+\]\s+/,''));
+  const cleanMsg=msg.replace(/^[A-Z-]{4,12}\s{1,8}\[[^\]]+\]\s+/,'');
+  const keyword=cleanMsg.match(/^([A-Z]{2,8})\s{2,}/)?.[1];
+
+  if(keyword&&TAG_ANIM[keyword]){
+    const anim=TAG_ANIM[keyword];
+    const displayMsg=cleanMsg.replace(/^[A-Z]+\s{2,}/,'');
+    log(keyword,anim.cls,displayMsg,'',true);
+    anim.nodes.forEach(([f,t,c])=>pkt(f,t,c));
+    anim.pills.forEach(p=>litPill(p,'busy'));
+    if(anim.api)apiHit(anim.api);
+    // Bump metrics
+    if(keyword==='CRYPT'){bump('chunks');bump('keys');}
+    if(keyword==='AUDIT'){bump('events');}
+  } else {
+    // Generic — show verbatim with LIVE badge, don't suppress anything
+    const stripped=cleanMsg.replace(/^INFO\s+\[[\w.]+\]\s+/,'');
+    if(stripped&&!stripped.startsWith(':'))
+      log('LIVE','LIVE',stripped,'',true);
+  }
+}
+
+// ── BACKGROUND NOISE ──
+function bgNoise(){
+  const eps=['ep-cases','ep-audit','ep-dl','ep-pv'];
+  apiHit(eps[Math.floor(Math.random()*eps.length)]);
+  setTimeout(bgNoise,2200+Math.random()*3800);
+}
+
+// ── INIT ──
+async function init(){
+  log('SYS','SYS','PRAMAAN Secure Evidence Vault','v1.0 — Flask 3.x + PostgreSQL 16 + AES-256-GCM');
+  await new Promise(r=>setTimeout(r,120));
+  log('SYS','SYS','Chunk size: 1 MB (CHUNK_SIZE_BYTES=1048576)','Per-chunk HKDF key → random 96-bit IV → GCM tag');
+  await new Promise(r=>setTimeout(r,100));
+  log('SYS','SYS','KMS: local file KMS (wrapped under KMS_WRAPPING_KEY env var)','HashiCorp Vault in production');
+  await new Promise(r=>setTimeout(r,100));
+  log('SYS','SYS','Audit chain: pg_advisory_xact_lock(audit_seq) on every append','SHA-256(prev_hash ‖ event_data) linkage');
+  await new Promise(r=>setTimeout(r,100));
+  log('SYS','SYS','RBAC: SUPER_ADMIN · CASE_OFFICER · INVESTIGATOR · PROSECUTOR · AUDITOR · VIEWER','');
+  await new Promise(r=>setTimeout(r,100));
+  log('SYS','SYS','Rate limits: LOGIN_LIMITS · MFA_LIMITS · UPLOAD_LIMITS · OTP_REQUEST_LIMITS · SHARE_ACCESS_LIMITS','Flask-Limiter (in-memory) → Redis in production');
+  await new Promise(r=>setTimeout(r,100));
+  log('SYS','SYS','All systems operational ✓','');
+
+  // seed baseline metrics
+  for(let i=0;i<10;i++){
+    bump('chunks',Math.floor(Math.random()*30+12));
+    bump('keys',Math.floor(Math.random()*30+12));
+    bump('events',Math.floor(Math.random()*8+3));
+    bump('depth',Math.floor(Math.random()*8+3));
+    await new Promise(r=>setTimeout(r,55));
+  }
+
+  bgNoise();
+  await new Promise(r=>setTimeout(r,700));
+  runScene(0,true);
+}
+
+init();
+</script>
+</body>
+</html>
